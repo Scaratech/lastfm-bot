@@ -1,7 +1,4 @@
 # LastFM Bot
-> [!WARNING]
-**I AM NOT RESPONSIBLE IF YOUR LASTFM ACCOUNT GETS BANNED!!**
-
 A simple API for spoofing last.fm scrobbles of your currently playing song 
 
 ## Building

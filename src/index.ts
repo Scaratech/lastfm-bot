@@ -5,6 +5,8 @@ import express, { Request, Response } from "express";
 import session from "express-session";
 import axios from "axios";
 import crypto from "crypto";
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'url';
 
 const API_KEY = process.env.API_KEY;
 const API_SECRET = process.env.API_SECRET;
@@ -53,6 +55,8 @@ function genApiSig(params: Record<string, string>): string {
     return crypto.createHash("md5").update(sig).digest("hex");
 }
 
+app.use(express.static('public'));
+
 app.get("/auth", (req: Request, res: Response) => {
     const callback = `${req.protocol}://${req.get("host")}/callback`;
     const auth = `http://www.last.fm/api/auth/?api_key=${API_KEY}&cb=${encodeURIComponent(callback)}`;
@@ -91,10 +95,9 @@ app.get("/callback", async (req, res): Promise<any> => {
         const username = response.data.session?.name;
 
         if (!sessionKey || !username) return res.status(400).send("Failed to get session key");
-
         req.session.lastfm = { sessionKey, username };
 
-        res.status(200).send(`Authenticated as ${username}`);
+        res.redirect("/");
     } catch (error) {
         console.error("Error getting session key:", error.response?.data || error);
         res.status(500).send("Failed to get session key");
@@ -192,9 +195,9 @@ app.get("/spoof/start", async (req: Request, res: Response): Promise<any> => {
         delete spoofIntervals[USERNAME];
     }
 
-    spoofIntervals[USERNAME] = setInterval(async () => {
-        const currentTrack = await getSong(sessionKey);
+    const currentTrack = await getSong(sessionKey);
 
+    spoofIntervals[USERNAME] = setInterval(async () => {
         if (!currentTrack) {
             console.log(`[${USERNAME}] No currently playing track found`);
             return;
@@ -204,15 +207,13 @@ app.get("/spoof/start", async (req: Request, res: Response): Promise<any> => {
         const result = await scrobble(sessionKey, currentTrack, timestamp);
 
         if (result && !result.error) {
-            console.log(
-                `[${USERNAME}] Scrobbled: ${currentTrack.artist} - ${currentTrack.track}`
-            );
+            console.log(`[${USERNAME}] Scrobbled: ${currentTrack.artist} - ${currentTrack.track}`);
         } else {
             console.error(`[${USERNAME}] Failed to scrobble`, result);
         }
     }, 200);
 
-    res.status(200).send(`Started spoofing plays for user ${USERNAME} 5 times per second.`);
+    res.status(200).send(`[${USERNAME}] Scrobbled: ${currentTrack.artist} - ${currentTrack.track}`);
 });
 
 app.get("/spoof/stop", (_req: Request, res: Response): any => {
@@ -221,9 +222,9 @@ app.get("/spoof/stop", (_req: Request, res: Response): any => {
         delete spoofIntervals[USERNAME];
 
         console.log(`[${USERNAME}] Spoofing stopped`);
-        return res.status(200).send(`Stopped spoofing plays for user ${USERNAME}.`);
+        return res.status(200).send(`[${USERNAME}] Spoofing stopped`);
     } else {
-        return res.status(404).send(`No active spoofing found for user ${USERNAME}.`);
+        return res.status(404).send(`No active spoofing found for user ${USERNAME}`);
     }
 });
 
